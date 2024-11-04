@@ -172,7 +172,6 @@ checkpoints/
 results/
 printout/
 data/
-evaluation/
 *.out
 *.bin
 *.zip
