@@ -32,12 +32,15 @@ mkdir -p /mbz/users/liyuan/LLaMA-Factory/printout/error_file
 current_time=$(date +"%Y%m%d_%H%M%S")
 
 # Define random seeds
-seeds=(42)  # Add seeds
+seeds=(43)  # Add seeds
 
 # model_name="Meta-Llama-3-8B"
 # --model_name_or_path checkpoints/${model_name} \
 model_name="Meta-Llama-3-8B"
-adapt_model="GPT4_alpaca_sft_42"
+# adapt_model="GPT4_alpaca_sft_42"
+adapt_model="Instruct-SkillMix_sft_43"
+# --model_name_or_path /mbz/users/liyuan/LLaMA-Factory/saves/${model_name}/full/${adapt_model} \
+# dataset_name="Instruct-SkillMix"
 dataset_name="GSM8K_train"
 
 # Loop over each seed
@@ -45,11 +48,12 @@ for seed in "${seeds[@]}"; do
     echo "Running with seed ${seed}"
 
     # Set output directory for this seed
+    # output_dir="saves/${model_name}/full/${dataset_name}_sft_${seed}"
     output_dir="saves/${model_name}/full/${adapt_model}_${dataset_name}_sft_${seed}"
 
     # Run the training with all parameters specified
     srun --ntasks=1 --gres=gpu:8 --ntasks-per-node=1 llamafactory-cli train \
-        --model_name_or_path /mbz/users/liyuan/LLaMA-Factory/saves/${model_name}/full/${adapt_model} \
+         --model_name_or_path /mbz/users/liyuan/LLaMA-Factory/saves/${model_name}/full/${adapt_model} \
         --stage sft \
         --do_train \
         --finetuning_type full \
@@ -67,7 +71,7 @@ for seed in "${seeds[@]}"; do
         --per_device_train_batch_size 4 \
         --gradient_accumulation_steps 4 \
         --learning_rate 1.0e-6 \
-        --num_train_epochs 3 \
+        --num_train_epochs 5 \
         --lr_scheduler_type cosine \
         --warmup_ratio 0.1 \
         --bf16 \
