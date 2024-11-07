@@ -1,23 +1,7 @@
 # LLaMA Factory
 
+Scripts for training are stored under ``commands/train_command``, and Scripts for evaluation are stored under ``commands/eval_command''
 
-**Fine-tuning a large language model can be easy as...**
-
-https://github.com/user-attachments/assets/7c96b465-9df7-45f4-8053-bf03e58386d3
-
-Choose your path:
-
-- **Colab**: https://colab.research.google.com/drive/1eRTPn37ltBbYsISy9Aw2NuI2Aq5CQrD9?usp=sharing
-- **PAI-DSW**: [Llama3 Example](https://gallery.pai-ml.com/#/preview/deepLearning/nlp/llama_factory) | [Qwen2-VL Example](https://gallery.pai-ml.com/#/preview/deepLearning/nlp/llama_factory_qwen2vl)
-- **Local machine**: Please refer to [usage](#getting-started)
-- **Documentation (WIP)**: https://llamafactory.readthedocs.io/zh-cn/latest/
-
-Recent activities:
-
-- **2024/10/18-2024/11/30**: Build a personal tour guide bot using PAI+LLaMA Factory. [[website]](https://developer.aliyun.com/topic/llamafactory2)
-
-> [!NOTE]
-> Except for the above links, all other websites are unauthorized third-party websites. Please carefully use them.
 
 ## Table of Contents
 
