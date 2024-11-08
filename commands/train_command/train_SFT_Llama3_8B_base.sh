@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=mbzuai
 #SBATCH --time=10:00:00
-#SBATCH --nodes=1
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:8
 #SBATCH --exclusive
@@ -49,9 +49,9 @@ for seed in "${seeds[@]}"; do
 
     # Set output directory for this seed
     output_dir="saves/${model_name}/full/${dataset_name}_sft_${lr}/seed_${seed}"
-
+# --ntasks=2 --gres=gpu:8 --ntasks-per-node=1 
     # Run the training with all parameters specified
-    srun --ntasks=1 --gres=gpu:8 --ntasks-per-node=1 llamafactory-cli train \
+    srun llamafactory-cli train \
         --model_name_or_path checkpoints/${model_name} \
         --stage sft \
         --do_train \
