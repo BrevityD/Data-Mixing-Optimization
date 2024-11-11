@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=mbzuai
 #SBATCH --time=10:00:00
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:8
 #SBATCH --exclusive
@@ -23,10 +23,6 @@ export NCCL_SOCKET_IFNAME=^docker0,lo
 export NCCL_IB_HCA=mlx5
 export NCCL_IB_GID_INDEX=3
 
-# Set up distributed environment variables
-export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-export MASTER_PORT=29500  # Choose an appropriate port
-
 # Navigate to your project directory
 cd /mbz/users/liyuan/LLaMA-Factory
 mkdir -p printout/output_file
@@ -36,12 +32,12 @@ mkdir -p printout/error_file
 current_time=$(date +"%Y%m%d_%H%M%S")
 
 # Define random seeds
-seeds=(42)  # Add more seeds if needed
+seeds=(50)  # Add more seeds if needed
 
 # Model and training parameters
 model_name="Meta-Llama-3.1-8B"
-dataset_name="Tulu-v2"
-lr=1.0e-5
+dataset_name="FOLIO_like_data"
+lr=1.0e-6
 
 # Loop over each seed
 for seed in "${seeds[@]}"; do
@@ -49,9 +45,7 @@ for seed in "${seeds[@]}"; do
 
     # Set output directory for this seed
     output_dir="saves/${model_name}/full/${dataset_name}_sft_${lr}/seed_${seed}"
-# --ntasks=2 --gres=gpu:8 --ntasks-per-node=1 
-    # Run the training with all parameters specified
-    srun llamafactory-cli train \
+    srun --ntasks=1 --gres=gpu:8 --ntasks-per-node=1 llamafactory-cli train \
         --model_name_or_path checkpoints/${model_name} \
         --stage sft \
         --do_train \
@@ -64,21 +58,21 @@ for seed in "${seeds[@]}"; do
         --preprocessing_num_workers 16 \
         --output_dir ${output_dir} \
         --logging_steps 100 \
-        --save_steps 1000 \
+        --save_steps 50 \
         --plot_loss \
         --overwrite_output_dir \
-        --per_device_train_batch_size 4 \
-        --gradient_accumulation_steps 4 \
+        --per_device_train_batch_size 2 \
+        --gradient_accumulation_steps 2 \
         --learning_rate ${lr} \
-        --num_train_epochs 3 \
+        --num_train_epochs 2 \
         --lr_scheduler_type cosine \
         --warmup_ratio 0.1 \
         --bf16 \
         --ddp_timeout 180000000 \
-        --val_size 0.01 \
+        --val_size 0.1 \
         --per_device_eval_batch_size 16 \
         --eval_strategy steps \
-        --eval_steps 1000 \
+        --eval_steps 50 \
         --seed "${seed}" \
         >> "printout/output_file/output_${SLURM_JOB_ID}_${current_time}_${seed}.out" \
         2>> "printout/error_file/error_${SLURM_JOB_ID}_${current_time}_${seed}.err"
