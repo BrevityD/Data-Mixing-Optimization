@@ -27,7 +27,7 @@ class GeneratingArguments:
         metadata={"help": "Whether or not to use sampling, use greedy decoding otherwise."},
     )
     temperature: float = field(
-        default=0.95,
+        default=1,
         metadata={"help": "The value used to modulate the next token probabilities."},
     )
     top_p: float = field(

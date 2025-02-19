@@ -28,7 +28,7 @@ cd /mbz/users/liyuan/LLaMA-Factory
 # Set up output and error file paths with current time
 current_time=$(date +"%Y%m%d_%H%M%S")
 seeds=(42)
-model_name="FOLIO_like_data_sft_1.0e-6"
+model_name="FOLIO_like_data_sft_1.0e-6_seed42"
 # model_name="Meta-Llama-3.1-8B-Instruct"
 
 eval_dataset="FOLIO_validation"
@@ -39,7 +39,7 @@ for seed in "${seeds[@]}"; do
     echo "Running with seed ${seed}"
 
     # Run the training with command-line arguments
-    srun --ntasks=1 --gres=gpu:8 --ntasks-per-node=1 llamafactory-cli train \
+    srun llamafactory-cli train \
         --model_name_or_path "saves/Meta-Llama-3.1-8B/full/${model_name}" \
         --stage sft \
         --do_predict \

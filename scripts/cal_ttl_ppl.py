@@ -88,8 +88,6 @@ def calculate_ppl(
             do_train=True,
         )
     )
-    # model_args.device_map = "auto"
-    # model_args.low_cpu_mem_usage = True     
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
@@ -126,17 +124,16 @@ def calculate_ppl(
             flatten_labels = shift_labels.contiguous().view(-1)
             token_logps: "torch.Tensor" = criterion(flatten_logits, flatten_labels)
             token_logps = token_logps.contiguous().view(shift_logits.size(0), -1)
-            
-            # Modify this code to change from sentence label perplexity calculation to token-level perplexity
-            # sentence_logps = (token_logps * loss_mask).sum(-1) / loss_mask.sum(-1)
-            # total_ppl += sentence_logps.exp().sum().item()
+
             batch_log_prob = (token_logps * loss_mask).sum().item()
             batch_tokens = loss_mask.sum().item()
             total_log_prob += batch_log_prob
             total_tokens += batch_tokens
         avg_log_prob = total_log_prob / total_tokens
         token_level_ppl = math.exp(avg_log_prob)
-        printout=[{"token-level ppl": token_level_ppl}]
+        printout=[{"averaged token-level ppl": token_level_ppl},
+                  {"total log probability": total_log_prob},
+                  {"num tokens": total_tokens},]
     with open(save_name, "w", encoding="utf-8") as f:
         json.dump(printout, f, indent=2)
         
