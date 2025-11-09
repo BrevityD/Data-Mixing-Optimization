@@ -23,13 +23,13 @@ export NCCL_SOCKET_IFNAME=^docker0,lo
 export NCCL_IB_HCA=mlx5
 export NCCL_IB_GID_INDEX=3
 
-# Navigate to your project directory
-cd /mbz/users/liyuan/LLaMA-Factory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}" || exit 1
 
 mkdir -p printout/output_file
 mkdir -p printout/error_file
 
-
-python3 /mbz/users/liyuan/LLaMA-Factory/data_preprocess/tulu3-sft/load_datasource.py \
->> "printout/output_file/output_${SLURM_JOB_ID}_${current_time}_${seed}.out" \
-2>> "printout/error_file/error_${SLURM_JOB_ID}_${current_time}_${seed}.err"
+python3 data_preprocess/tulu3-sft/load_datasource.py \
+  >> "printout/output_file/output_${SLURM_JOB_ID}.out" \
+  2>> "printout/error_file/error_${SLURM_JOB_ID}.err"

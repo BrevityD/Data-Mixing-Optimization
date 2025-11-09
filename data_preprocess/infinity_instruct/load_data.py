@@ -1,15 +1,16 @@
 import json
 import random
-from datasets import load_dataset
-from tqdm import tqdm
-from langdetect import detect, LangDetectException
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from pathlib import Path
 
-# Set paths
+from datasets import load_dataset
+from langdetect import LangDetectException, detect
+from tqdm import tqdm
+from transformers import AutoTokenizer
+
 dataset_name = "cache_Infinity-Instruct_0625_len"
-base_path = '/mbz/users/liyuan/LLaMA-Factory'
-model_path = f"{base_path}/checkpoints/Llama-3.1-8B-Instruct"
-output_path = f"{base_path}/data/{dataset_name}.json"
+project_root = Path(__file__).resolve().parents[2]
+model_path = project_root / "checkpoints" / "Llama-3.1-8B-Instruct"
+output_path = project_root / "data" / f"{dataset_name}.json"
 
 def filter(input_str, output_str, keywords1, keywords2):
     input_words = set(input_str.split())
@@ -24,8 +25,6 @@ def filter(input_str, output_str, keywords1, keywords2):
         return random.random() < keep_probability
 
     return True
-
-structured_data = []
 
 short_threshold = 8
 keep_probability = 0.02
@@ -64,17 +63,15 @@ for i in tqdm(range(len(ds['train'])), desc="Processing dataset"):
     except (LangDetectException, IndexError):
         continue
 
-# Shuffle the data
 random.shuffle(structured_data)
 
-# Save to JSON
 with open(output_path, "w") as json_file:
     json.dump(structured_data, json_file, indent=2)
 
 print(f"Structured data saved to {output_path}")
 
 
-dataset_info_path = "/mbz/users/liyuan/LLaMA-Factory/data/dataset_info.json"
+dataset_info_path = project_root / "data" / "dataset_info.json"
 with open(dataset_info_path, "r") as f:
     try:
         dataset_info = json.load(f)
@@ -82,8 +79,8 @@ with open(dataset_info_path, "r") as f:
         dataset_info = {}
 
 dataset_info[dataset_name] = {
-    "file_name": output_path
+    "file_name": str(output_path)
 }
 
 with open(dataset_info_path, "w") as f:
-        json.dump(dataset_info, f, indent=2)
+    json.dump(dataset_info, f, indent=2)
