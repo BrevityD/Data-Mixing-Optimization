@@ -5,6 +5,8 @@ This repository accompanies the paper [*Data Mixing Optimization for Supervised 
 ## Environment Setup
 - `conda create -n <venv_name> python=3.10` and `conda activate <venv_name>`.
 - `pip install -r requirements.txt`.
+- For evaluation jobs, the SLURM wrapper expects an environment named `lm-eval`; create it via `conda create -n lm-eval python=3.10` (or rename the env in the script to match your setup).
+- Clone the [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) repository and install it inside that environment, e.g. `git clone https://github.com/EleutherAI/lm-evaluation-harness && cd lm-evaluation-harness && pip install -e .`, so the `lm_eval` CLI invoked by `commands/eval_command/lm-evaluation-harness.sh` is available.
 - `source commands/train_command/common_env.sh` to load shared CUDA, NCCL, and logging settings (edit defaults in the script as needed).
 
 ## Data Processing
