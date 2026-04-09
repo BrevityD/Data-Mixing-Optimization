@@ -4,44 +4,25 @@ import random
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-
-def get_project_root() -> Path:
-    current = Path.cwd()
-    for candidate in [current, *current.parents]:
-        if (candidate / "data_preprocess").exists() and (candidate / "data").exists():
-            return candidate
-    raise RuntimeError("Unable to locate project root.")
-
-
-PROJECT_ROOT = get_project_root()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_DIR = DATA_DIR / "data_mixing"
 DATASET_INFO_PATH = DATA_DIR / "dataset_info.json"
 
 
 DOMAIN_DATASETS: Dict[str, Path] = {
-    "code": DATA_DIR / "opencoder-sft_len.json",
-    "instr": DATA_DIR / "Infinity-Instruct_0625_len.json",
-    "math": DATA_DIR / "openmathinstruct2_1M_len.json",
+    "code": DATA_DIR / "tulu-3-sft-personas-code.json",
+    "insfo": DATA_DIR / "tulu-3-sft-personas-instruction-following.json",
+    "math": DATA_DIR / "tulu-3-sft-personas-math-filtered.json",
+    "algebra": DATA_DIR / "tulu-3-sft-personas-algebra.json",
+    "math-grade": DATA_DIR / "tulu-3-sft-personas-math-grade-filtered.json",
 }
 
 
 EXPERIMENTS: Dict[str, Dict] = {
-    "exp2_optim": {
-        "experiment_name": "exp2",
-        "base_token": 200_000_000,
-        "token_limit_ratios": {
-            "200000000_Llama-3.1-8B_instr_optim": 0.48666725,
-            "200000000_Llama-3.1-8B_math_optim": 0.29281993,
-            "200000000_Llama-3.1-8B_code_optim": 0.22051281,
-        },
-        "match_domain_in_key": True,
-        "validation_size": None,
-        "combine_validation": False,
-    },
     "exp2": {
         "experiment_name": "exp2",
-        "base_token": 200_000_000,
+        "base_token": 2_000_000,
         "token_limit_ratios": {
             "0.125": 0.125,
             "0.25": 0.25,
@@ -53,34 +34,27 @@ EXPERIMENTS: Dict[str, Dict] = {
         "match_domain_in_key": False,
         "validation_size": 1_000,
         "combine_validation": True,
-    },
-    "exp1": {
-        "experiment_name": "exp1",
-        "base_token": 660_000,
-        "token_limits": {
-            "onehalf": int(660_000 * 1.5),
-        },
-        "match_domain_in_key": False,
-        "validation_size": None,
-        "combine_validation": False,
-    },
+    }
 }
 
 
 def sample_tokens(data: List[Dict], token_limit: int) -> List[Dict]:
     selected: List[Dict] = []
     total_tokens = 0
-    for item in data:
-        if total_tokens + item.get("len", 0) <= token_limit:
-            total_tokens += item.get("len", 0)
-            selected.append({k: v for k, v in item.items() if k != "len"})
-        else:
-            remaining_tokens = max(token_limit - total_tokens, 0)
-            truncated_item = {k: v for k, v in item.items() if k != "len"}
-            if remaining_tokens > 0 and isinstance(truncated_item.get("output"), str):
-                truncated_item["output"] = truncated_item["output"][:remaining_tokens]
-            selected.append(truncated_item)
-            break
+    while total_tokens <= token_limit:
+        for item in data:
+            if total_tokens + item.get("len", 0) <= token_limit:
+                total_tokens += item.get("len", 0)
+                selected.append({k: v for k, v in item.items() if k != "len"})
+            else:
+                total_tokens += item.get("len", 0)
+                remaining_tokens = max(token_limit - total_tokens, 0)
+                truncated_item = {k: v for k, v in item.items() if k != "len"}
+                if remaining_tokens > 0 and isinstance(truncated_item.get("output"), str):
+                    truncated_item["output"] = truncated_item["output"][:remaining_tokens]
+                selected.append(truncated_item)
+                break
+        print(f"selected {total_tokens} tokens with limit {token_limit}")
     return selected
 
 

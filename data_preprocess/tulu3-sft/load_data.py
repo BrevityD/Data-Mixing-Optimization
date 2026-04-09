@@ -11,48 +11,74 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PROJ_ROOT = Path(__file__).resolve().parents[5]
 DATA_PATH = PROJ_ROOT / "datasets"
 MODEL_PATH = PROJ_ROOT.parents[0] / "models" / "Qwen3-1.7B"
-OUTPUT_PATH = REPO_ROOT / "data" / "tulu3-sft.json"
 
-tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH))
-ds = load_dataset(str(DATA_PATH / "general_domain" / "tulu-3-sft-mixture"))
+DATASETS_PATH = [
+    "code_domain/tulu-3-sft-personas-code",
+    "math_domain/tulu-3-sft-personas-algebra",
+    "general_domain/tulu-3-sft-personas-instruction-following",
+    "math_domain/tulu-3-sft-personas-math-grade-filtered",
+    "math_domain/tulu-3-sft-personas-math-filtered"
+]
 
-# Shuffle indices beforehand to avoid storing all processed data in memory
-indices = list(range(len(ds["train"])))
-random.shuffle(indices)
+for dataset in DATASETS_PATH:
+    dataset_name = dataset.split("/")[-1]
 
-BATCH_SIZE = 50
-structured_data = []
-first_item = True
+    OUTPUT_PATH = REPO_ROOT / "data" / (dataset_name+".json")
 
-with OUTPUT_PATH.open("w", encoding="utf-8") as json_file:
-    json_file.write("[\n")
-    
-    for i in tqdm(indices, desc="Processing dataset"):
-        try:
-            if len(ds["train"][i]["messages"]) != 2:
+    tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH))
+    ds = load_dataset(str(DATA_PATH / dataset))
+
+    # Shuffle indices beforehand to avoid storing all processed data in memory
+    indices = list(range(len(ds["train"])))
+    random.shuffle(indices)
+
+    BATCH_SIZE = 50
+    structured_data = []
+    first_item = True
+
+    with OUTPUT_PATH.open("w", encoding="utf-8") as json_file:
+        json_file.write("[\n")
+        
+        for i in tqdm(indices, desc="Processing dataset"):
+            try:
+                if len(ds["train"][i]["messages"]) != 2:
+                    continue
+                instruction = ds["train"][i]["messages"][0]["content"]
+                output = ds["train"][i]["messages"][1]["content"]
+                if instruction and output:
+                    instruction_lang = detect(instruction)
+                    output_lang = detect(output)
+
+                    if (
+                        instruction_lang == "en"
+                        and output_lang == "en"
+                        and len(tokenizer.encode(output)) <= 4096
+                    ):
+                        structured_data.append(
+                            {
+                                "instruction": instruction,
+                                "input": "",
+                                "output": output,
+                                "len": len(tokenizer.encode(output))
+                            }
+                        )
+            except (LangDetectException, IndexError):
                 continue
-            instruction = ds["train"][i]["messages"][0]["content"]
-            output = ds["train"][i]["messages"][1]["content"]
-            if instruction and output:
-                instruction_lang = detect(instruction)
-                output_lang = detect(output)
 
-                if (
-                    instruction_lang == "en"
-                    and output_lang == "en"
-                    and len(tokenizer.encode(output)) <= 4096
-                ):
-                    structured_data.append(
-                        {
-                            "instruction": instruction,
-                            "input": "",
-                            "output": output,
-                        }
-                    )
-        except (LangDetectException, IndexError):
-            continue
+            if len(structured_data) >= BATCH_SIZE:
+                for item in structured_data:
+                    if not first_item:
+                        json_file.write(",\n")
+                    else:
+                        first_item = False
+                    
+                    item_str = json.dumps(item, indent=2)
+                    item_str = "  " + item_str.replace("\n", "\n  ")
+                    json_file.write(item_str)
+                structured_data.clear()
 
-        if len(structured_data) >= BATCH_SIZE:
+        # Save remaining data
+        if structured_data:
             for item in structured_data:
                 if not first_item:
                     json_file.write(",\n")
@@ -64,19 +90,6 @@ with OUTPUT_PATH.open("w", encoding="utf-8") as json_file:
                 json_file.write(item_str)
             structured_data.clear()
 
-    # Save remaining data
-    if structured_data:
-        for item in structured_data:
-            if not first_item:
-                json_file.write(",\n")
-            else:
-                first_item = False
-            
-            item_str = json.dumps(item, indent=2)
-            item_str = "  " + item_str.replace("\n", "\n  ")
-            json_file.write(item_str)
-        structured_data.clear()
+        json_file.write("\n]\n")
 
-    json_file.write("\n]\n")
-
-print(f"Structured data saved to {OUTPUT_PATH}")
+    print(f"Structured data saved to {OUTPUT_PATH}")
