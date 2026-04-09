@@ -1,29 +1,47 @@
-# Data Mixing Optimization
 
-This repository accompanies the paper [*Data Mixing Optimization for Supervised Fine-Tuning of Large Language Models*](https://arxiv.org/abs/2508.11953) by Yuan Li, Zhengzhong Liu, and Eric Xing.
 
-## Environment Setup
-- `conda create -n <venv_name> python=3.10` and `conda activate <venv_name>`.
-- `pip install -r requirements.txt`.
-- For evaluation jobs, the SLURM wrapper expects an environment named `lm-eval`; create it via `conda create -n lm-eval python=3.10` (or rename the env in the script to match your setup).
-- Clone the [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) repository and install it inside that environment, e.g. `git clone https://github.com/EleutherAI/lm-evaluation-harness && cd lm-evaluation-harness && pip install -e .`, so the `lm_eval` CLI invoked by `commands/eval_command/lm-evaluation-harness.sh` is available.
-- `source commands/train_command/common_env.sh` to load shared CUDA, NCCL, and logging settings (edit defaults in the script as needed).
+这个仓库被我用作 [data-calibrator](https://github.com/BrevityD/data-calibrator) 的 submodule。
 
-## Data Processing
-- Each dataset-specific loader sits in `data_preprocess/<dataset_name>/` (e.g., `openorca`, `tulu3-sft`, `infinity_instruct`, `opencoder`, `openmathinstruct2`). Run the matching `load_data.py` (or Slurm wrapper) to download, filter, and tokenize that dataset, which writes cleaned JSON into `data/`.
-- `data_preprocess/data_mixing/sample_data.py` combines those JSON files into domain mixtures, creates optional validation splits, and registers paths in `data/dataset_info.json`.
-- All trainable model weights live under `checkpoints/`; populate it with the base models (e.g., `checkpoints/Llama-3.1-8B`) before launching jobs, matching the paths the scripts expect.
-- Any dataset you plan to reference in launch scripts must have an entry in `data/dataset_info.json` pointing to its JSON file; the preprocessing scripts above append these entries automatically.
+原始[README](./README.old.md)，这个文档用于记录我个人复现的操作：
 
-## Training & Inference
-- Submit fine-tuning jobs with `sbatch commands/train_command/train_single.sh` (or switch to `data_mixing.sh` / `recipe_exp1.sh`). These wrappers mirror [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory); consult upstream docs for detailed implementation.
-- Launch inference/perplexity sweeps with `sbatch commands/inference_command/calculate_ppl.sh domain` (use `total` for global perplexity runs). Adjust variables at the top of the script before submission.
+# 数据
 
-## Evaluation
-- `sbatch commands/eval_command/lm-evaluation-harness.sh` runs downstream tasks via the [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness); edit the task/model arrays inside the script or follow harness documentation for custom task lists.
+使用 `data-calibrator/datasets/download_data.py` 下载，下载了如下的数据集（默认 `./` 目录是 `data-calibrator` 项目目录：
 
-## Domain Weight Derivation
-- Step 1: `python domain_weights/beta_calibration.py` (or run `domain_weights/standard_beta_cal.ipynb` via `jupyter lab domain_weights/`) to estimate beta.
-- Step 2: `python domain_weights/param_calibration.py` or the companion notebook `domain_weights/param_cal.ipynb` to fit remaining parameters.
-- Step 3: `python domain_weights/perplexity_analysis.py` to aggregate validation perplexities and visualize matrices; optionally `python domain_weights/weight_optimizer.py` to sweep final weights.
-- Execute scripts/notebooks in the beta fit → parameter fit → perplexity order; notebooks contain worked examples mirroring the scripted flow.
+```json
+{
+    "allenai/tulu-3-sft-personas-code": "./datasets/code_domain/tulu-3-sft-personas-code",
+    "allenai/tulu-3-sft-personas-algebra": "./datasets/math_domain/tulu-3-sft-personas-algebra",
+    "allenai/tulu-3-sft-personas-instruction-following": "./datasets/general_domain/tulu-3-sft-personas-instruction-following",
+    "allenai/tulu-3-sft-personas-math-grade-filtered": "./datasets/math_domain/tulu-3-sft-personas-math-grade-filtered",
+    "allenai/tulu-3-sft-personas-math-filtered": "./datasets/math_domain/tulu-3-sft-personas-math-filtered",
+}
+```
+
+处理数据就直接使用了 [TULU3-load脚本](./data_preprocess/tulu3-sft/load_data.py)，对此进行了一些修改，主要是考虑这么多的数据一次处理压力会很大，也容易出错丢数据，所以每处理一些就增量保存一次，如果中断需要手动添加末尾：
+
+```shell
+$ sed -i '$ c}\n]' xxx.json
+```
+
+采样数据用了 `./data_preprocess/data_mixing/sample_data.py`，唯一的考虑是200M token的数据集大小太夸张了，我选择的TULU的这些数据集很多量不太够，训练压力也比较大，所以减成了20M token，且加了个上采样（重复采样）凑token。最多的code重复了四遍，除此之外只有 IF 几乎重复了两遍，此外都没什么重复采样的情况。
+
+用于估计几个参数的数据用了更少的2M base，也就是差不多6k条数据。
+
+# 训练
+
+我用uv管理，不用conda，并且是裸金属连服务器运行，不需要设置集群环境变量。再加上仓库原作者对训练参数的部分设置让我产生疑虑
+（比如 `exp2` 中的普通实验都是 linear 调度器 + gradient_steps=2，
+而标记了 `-optim` 的实验都是 cosine 调度器 + gradient_steps=4），
+所以我自己实现了训练脚本（都在 `./commands/reprod_bd` 中）。
+
+```shell-session
+foo@bar:~/data-calibrator/samples/experiment-reprod-DMO$ . .venv/bin/activate
+foo@bar:~/data-calibrator/samples/experiment-reprod-DMO$ cd Data-Mixing-Optimization/
+foo@bar:~/data-calibrator/samples/experiment-reprod-DMO/Data-Mixing-Optimization$ CUDA_VISIBLE_DEVICES=0,2,5,6 python commands/reprod_bd/train_sampling.py --template_yaml commands/reprod_bd/sft_full.yaml --base_token 2000000 --model_name Qwen3-1.7B-Base
+```
+
+4*H100，单卡batch size设置为4（还可以更大，全程显存占用小于40G，懒得调了，反正挺快的），大约十分钟能训三轮。
+
+顺带提一下，仓库原作者给出的内嵌llamafactory方案是无法运行的（`src/train.py` 需要导入 data template 相关的模块，而原作者并没有嵌入）。
+因此我把 `Llama-Factory` 作为 submodule 引入，跑起来了。
