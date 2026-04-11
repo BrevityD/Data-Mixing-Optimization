@@ -1,37 +1,31 @@
-#!/usr/bin/env python3
-""" 固定训练预算，扫点的baseline
+""" 标定每个领域参数的estimator
 """
 
 import argparse
 import itertools
 import subprocess
-from decimal import Decimal, getcontext
 from pathlib import Path
 from loguru import logger
 
-# 设置高精度比较，避免浮点数误差
-getcontext().prec = 6
 
-
-def check_sum_one(*ratios: str) -> bool:
-    """检查比例字符串之和是否为 1"""
-    total = sum(Decimal(r) for r in ratios)
-    return abs(total - Decimal("1")) < Decimal("1e-6")
-
-
-def generate_combinations(domains, sizes):
-    """生成所有比例和为 1 的组合，返回列表，每项为 (domain1_ratio, domain2_ratio, domain3_ratio)"""
-    valid = []
-    for s1, s2, s3, s4, s5 in itertools.product(sizes, repeat=5):
-        if check_sum_one(s1, s2, s3, s4, s5):
-            valid.append((s1, s2, s3, s4, s5))
+def generate_combinations(domains_num: int, sizes: list[str]):
+    """生成每个领域计算量变化的组合，返回列表，每项为 (domain1_ratio, domain2_ratio, domain3_ratio)"""
+    assert domains_num > 0
+    valid = set()
+    original = ["1" for _ in range(domains_num)]
+    for idx in range(domains_num):
+        for size in sizes:
+            temp = original.copy()
+            temp[idx] = size
+            valid.add(tuple(temp))
+    valid = list(valid)
     logger.info(f"will train {len(valid)} ratioes.")
     return valid
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="LLaMA-Factory grid search for exp2 data mixing"
+        description="LLaMA-Factory params calibrator"
     )
     parser.add_argument(
         "--template_yaml", type=str, required=True,
@@ -46,7 +40,7 @@ def main():
         help="Model name for output directory naming (default: Llama-3.1-8B)"
     )
     parser.add_argument(
-        "--output_root", type=str, default="saves/exp2_grid",
+        "--output_root", type=str, default="saves/param_calibrator",
         help="Root directory for saving checkpoints (default: saves/exp2_grid)"
     )
     parser.add_argument(
@@ -54,8 +48,8 @@ def main():
         help="List of domain names (default: )"
     )
     parser.add_argument(
-        "--sizes", nargs="+", default=["0.125", "0.25", "0.375", "0.5", "0.625", "0.75"],
-        help="List of ratio strings to grid over (default: 0.125 0.25 0.375 0.5 0.625 0.75)"
+        "--sizes", nargs="+", default=["0.25", "0.5", "1", "2", "3"],
+        help="List of ratio strings"
     )
     parser.add_argument(
         "--dry_run", action="store_true",
@@ -67,9 +61,9 @@ def main():
     sizes = args.sizes
     base_token = args.base_token
 
-    combinations = generate_combinations(domains, sizes)
+    combinations = generate_combinations(len(domains), sizes)
 
-    for idx, (r1, r2, r3, r4, r5) in enumerate(combinations, 1):
+    for idx, (r1, r2, r3, r4, r5) in enumerate(combinations):
         # 构造数据集名称，格式：{base_token}_{domain}_{ratio}
         dataset_str = (
             f"{base_token}_{domains[0]}_{r1},"
@@ -90,7 +84,7 @@ def main():
             "llamafactory-cli", "train", args.template_yaml,
             f"dataset={dataset_str}",
             f"output_dir={str(output_dir)}",
-            f"run_name={args.model_name}_{base_token}_{domains[0]}{r1}_{domains[1]}{r2}_{domains[2]}{r3}_{domains[3]}{r4}_{domains[4]}{r5}"
+            f"run_name={args.model_name}_calibrate_{base_token}_{domains[0]}{r1}_{domains[1]}{r2}_{domains[2]}{r3}_{domains[3]}{r4}_{domains[4]}{r5}"
         ]
 
         logger.info(f"\n[{idx}/{len(combinations)}] Running:")

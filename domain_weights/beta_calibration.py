@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from itertools import permutations
 from scipy.optimize import Bounds, BFGS, minimize
 
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Dataset configurations
@@ -37,10 +38,46 @@ DATASETS = {
         "a_upper_ratio": 3.0 / 4.0,
         "inner_ratio": 3.0 / 4.0,
         "init_guess": [0.2, 0.8],
-        "delta": 0.01,
+        "delta": 0.001,
         "use_log_ratio": True,
         "use_huber": True,
     },
+    "reprod-domain": {
+        "base_token": 2,
+        "n_multiplier": 5.0,
+        "lyst": [
+            [1.3209294068206328, 1.3177611731111656, 1.3091747748532323, 1.307384888476087, 1.3128633550134747],
+            [3.248848378250468, 3.209871775940098, 3.163326979336607, 3.126473592570895, 3.1048126870647956],
+            [1.4311462428837203, 1.4452078494968883, 1.436760151799102, 1.4211894724331935, 1.4443729114323904],
+            [1.2931893437884074, 1.2875911436570397, 1.2827663480502296, 1.276776054036105, 1.274616637321269],
+            [1.3812296636544057, 1.3773533687246322, 1.373686253600997, 1.3706751606362126, 1.3666443277895863]
+        ],
+        "beta_estimates": [1, 1, 1, 1, 1],
+        "a_upper_ratio": 1.0,
+        "inner_ratio": 1.0,
+        "init_guess": [0.5, 0.5],
+        "delta": 0.001,
+        "use_log_ratio": True,
+        "use_huber": True,
+    },
+    "reprod": {
+        "base_token": 2,
+        "n_multiplier": 5.0,
+        "lyst": [
+            [1.4864252061762835, 1.4852084586348786, 1.4841388384062613, 1.483292414191768, 1.4825565742192153],
+            [1.4922187616771545, 1.4884424848962376, 1.4841388384062613, 1.4798007988406439, 1.477310808498759],
+            [1.4903875679535854, 1.4868702997846297, 1.4841388384062613, 1.4820262004609428, 1.4825623181021097],
+            [1.486649995908183, 1.4857755715719223, 1.4841388384062613, 1.4826714119183324, 1.4811100014588194],
+            [1.486159702145503, 1.4854258484726228, 1.4841388384062613, 1.4825439819384325, 1.482288271321139]
+        ],
+        "beta_estimates": [0.0025, 0.0066, 0.0302, 0.0040, 0.0018],
+        "a_upper_ratio": 0.8,
+        "inner_ratio": 1.0,
+        "init_guess": [0.05, 0.8],
+        "delta": 0.001,
+        "use_log_ratio": True,
+        "use_huber": True,
+    }
 }
 
 
@@ -56,12 +93,18 @@ def ratio_model(Ni: float, Nj: float, Nk: float, Nm: float, beta: float, A: floa
     denominator = difference_model(Nk, Nm, beta, A)
     return numerator / denominator
 
+def huber_loss(residual, delta: float = 0.001):
+    """
+    Huber Loss
+    """
+    residual = np.asarray(residual)
+    abs_r = np.abs(residual)
 
-def huber_loss(residual: float, delta: float = 0.001) -> float:
-    abs_r = abs(residual)
-    if abs_r <= delta:
-        return 0.5 * residual**2
-    return delta * (abs_r - 0.5 * delta)
+    return np.where(
+        abs_r <= delta,
+        0.5 * residual**2,
+        delta * (abs_r - 0.5 * delta)
+    )
 
 
 def multi_ratio_objective(ba, Lvals, Nvals, ratio_pairs, use_log_ratio, use_huber, delta):
@@ -186,7 +229,7 @@ def plot_ratios(domain_index, beta, A, Lvals, Nvals, ratio_pairs):
 def run_dataset(name: str, config: dict) -> None:
     base_token = config["base_token"]
     N = config["n_multiplier"] * base_token
-    N_vals = np.array([base_token * factor for factor in (1 / 3, 1 / 2, 1, 2, 3)])
+    N_vals = np.array([base_token * factor for factor in (0.25, 0.5, 1, 2, 3)])
 
     print(f"\n=== Running beta calibration for {name} ===")
     for domain_index, Lvals_raw in enumerate(config["lyst"], start=1):
@@ -201,11 +244,12 @@ def run_dataset(name: str, config: dict) -> None:
             f"[Domain {domain_index}] Beta={beta_est:.4f}, "
             f"A={A_est:.4f}, Loss={loss:.6f}"
         )
-        plot_ratios(domain_index, beta_est, A_est, Lvals, N_vals, ratio_pairs)
+        # plot_ratios(domain_index, beta_est, A_est, Lvals, N_vals, ratio_pairs)
 
 
 if __name__ == "__main__":
-    SELECTED_DATASETS = ["llama-3.2-3b", "orca"]
+    SELECTED_DATASETS = ["reprod", "reprod-domain", "orca", "llama-3.2-3b"]
+    SELECTED_DATASETS = ["reprod"]
     for dataset_name in SELECTED_DATASETS:
         run_dataset(dataset_name, DATASETS[dataset_name])
 

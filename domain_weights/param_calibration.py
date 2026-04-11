@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import BFGS, Bounds, NonlinearConstraint, minimize
 
-from .beta_calibration import DATASETS, huber_loss
+from beta_calibration import DATASETS, huber_loss
 
 
 def model(x_vals, c, gamma, alpha, beta, e, N, inner_ratio):
@@ -31,7 +31,7 @@ def constraint_fun(params, N, inner_ratio):
 def fit_domain_parameters(domain_index, Lvals_raw, beta_fixed, config, delta):
     base_token = config["base_token"]
     N = config["n_multiplier"] * base_token
-    x_vals = np.array([base_token * v for v in (1 / 3, 1 / 2, 1, 2, 3)])
+    x_vals = np.array([base_token * v for v in (1 / 4, 1 / 2, 1, 2, 3)])
     y_vals = np.array(Lvals_raw)
     inner_ratio = config["inner_ratio"]
 
@@ -128,7 +128,7 @@ def run_dataset(name: str, config: dict, delta: float):
 if __name__ == "__main__":
     DELTA = 0.001
     results = {}
-    for dataset_name in ["llama-3.2-3b", "orca"]:
+    for dataset_name in ["llama-3.2-3b", "orca", "reprod"]:
         params = run_dataset(dataset_name, DATASETS[dataset_name], DELTA)
         results[dataset_name] = params
 

@@ -20,6 +20,20 @@ DOMAIN_DATASETS: Dict[str, Path] = {
 
 
 EXPERIMENTS: Dict[str, Dict] = {
+    "calibrator": {
+        "experiment_name": "calibrator",
+        "base_token": 2_000_000,
+        "token_limit_ratios": {
+            "0.25": 0.25,
+            "0.5": 0.5,
+            "1": 1,
+            "2": 2,
+            "3": 3,
+        },
+        "match_domain_in_key": False,
+        "validation_size": 1_000,
+        "combine_validation": True,
+    },
     "exp2": {
         "experiment_name": "exp2",
         "base_token": 2_000_000,
